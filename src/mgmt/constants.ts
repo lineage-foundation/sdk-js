@@ -1,6 +1,6 @@
 /*====== MISC =======*/
 
-export const NETWORK_VERSION = 2; /* Always keep up to date with 2 Way network version! */
+export const NETWORK_VERSION = 2; /* Always keep up to date with Lineage network version! */
 export const SEED_REGEN_THRES = 1000;
 export const BAL_LIMIT = 10_000_000_000;
 export const ADDRESS_VERSION_OLD = 1; /* Old (depreciated) address structure */
@@ -14,4 +14,4 @@ export const DEFAULT_HEADERS = {
         'Content-Type': 'application/json',
     },
 };
-export const KEYPAIR_LOCAL_STORAGE = '2WayJS_KeypairLocalStorage';
+export const KEYPAIR_LOCAL_STORAGE = 'LineageSDK_KeypairLocalStorage';

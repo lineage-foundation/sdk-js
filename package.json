@@ -1,7 +1,7 @@
 {
-  "name": "@2waychain/2wayjs",
+  "name": "@lineage/sdk-js",
   "version": "1.0.7",
-  "description": "API wrapper to access the AIBlock 2 Way Chain",
+  "description": "API wrapper to access the Lineage blockchain network",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "module": "lib/index.es.js",
@@ -30,13 +30,13 @@
     "postversion": "git push && git push --tags"
   },
   "keywords": [
-    "AIBlock",
-    "2 Way Chain",
+    "Lineage",
+    "blockchain",
     "SDK",
     "API Module",
     "TypeScript"
   ],
-  "author": "Byron Houwens <byron.houwens@a-block.ch>, Robin Plojoux <robin.plojoux@a-block.ch>",
+  "author": "Lineage Foundation",
   "license": "MIT",
   "devDependencies": {
     "@types/bitcore-lib": "^0.15.3",
@@ -75,10 +75,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AIBlockOfficial/2Way.js.git"
+    "url": "git+https://github.com/lineage-foundation/sdk-js.git"
   },
   "bugs": {
-    "url": "https://github.com/AIBlockOfficial/2Way.js/issues"
+    "url": "https://github.com/lineage-foundation/sdk-js/issues"
   },
-  "homepage": "https://github.com/AIBlockOfficial/2Way.js#readme"
+  "homepage": "https://github.com/lineage-foundation/sdk-js#readme"
 }

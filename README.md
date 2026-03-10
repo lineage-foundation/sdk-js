@@ -5,21 +5,21 @@
 
 <div align="center">
   <a>
-    <img src="https://github.com/AIBlockOfficial/2Way.js/blob/main/assets/hero.svg" alt="Logo" style="width: 150px">
+    <img src="https://github.com/lineage-foundation/sdk-js/blob/main/assets/hero.svg" alt="Logo" style="width: 150px">
   </a>
 
-  <h3 align="center">2Way.js</h3>
+  <h3 align="center">Lineage SDK (JavaScript)</h3>
 
   <div>
-  <img src="https://img.shields.io/github/actions/workflow/status/AIBlockOfficial/2Way.js/.github/workflows/codeql.yml?branch=main" alt="Pipeline Status" style="display:inline-block"/>
-  <img src="https://img.shields.io/npm/v/@2waychain/2wayjs" alt="Pipeline Status" style="display:inline-block"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/lineage-foundation/sdk-js/.github/workflows/codeql.yml?branch=main" alt="Pipeline Status" style="display:inline-block"/>
+  <img src="https://img.shields.io/npm/v/@lineage/sdk-js" alt="npm version" style="display:inline-block"/>
   </div>
 
   <p align="center">
-    JavaScript/TypeScript API wrapper to help interact with the 2 Way Chain blockchain network.
+    JavaScript/TypeScript API wrapper to help interact with the Lineage blockchain network.
     <br />
     <br />
-    <a href="https://aiblock.dev"><strong>Official documentation »</strong></a>
+    <a href="https://lineage.foundation"><strong>Documentation »</strong></a>
     <br />
     <br />
   </p>
@@ -62,7 +62,7 @@
 
 ## About The Project
 
-This module aims to ease the development of wallet applications that interact with the 2 Way Chain network.
+This module aims to ease the development of wallet applications that interact with the Lineage network.
 
 Specific areas of focus include:
 
@@ -81,13 +81,13 @@ Install the module to your project:
 -   npm
 
     ```sh
-    npm install @2waychain/2wayjs
+    npm install @lineage/sdk-js
     ```
 
 -   yarn
 
     ```sh
-    yarn add @2waychain/2wayjs
+    yarn add @lineage/sdk-js
     ```
 
 <p align="right">(<a href="#top">back to top</a>)</p>
@@ -97,7 +97,7 @@ Install the module to your project:
 -   `initNew`
 
 ```typescript
-import { Wallet } from '@2waychain/2wayjs';
+import { Wallet } from '@lineage/sdk-js';
 
 const CONFIG = {
   mempoolHost: 'example.mempool.host.com',
@@ -168,7 +168,7 @@ This type of initialization will return the corresponding master key (in an encr
 <br/>
 
 ```typescript
-import { Wallet } from '@2waychain/2wayjs';
+import { Wallet } from '@lineage/sdk-js';
 
 // Create the wallet object
 const wallet = new Wallet();
@@ -195,7 +195,7 @@ const config = {
 const initNetworkResult = wallet.initNetwork(config);
 ```
 
-In some cases, it might be desirable to initialize the wallet without a network connection. This will allow the wallet to be used offline, but will inadvertently prevent the wallet from being able to perform any operations that require interaction with the 2 Way Chain network. The following functions are available with an offline configuration:
+In some cases, it might be desirable to initialize the wallet without a network connection. This will allow the wallet to be used offline, but will inadvertently prevent the wallet from being able to perform any operations that require interaction with the Lineage network. The following functions are available with an offline configuration:
 
 -   `regenAddresses` - Re-generate lost key-pairs from a list of given addresses.
 -   `getNewKeypair` - Generate a new key-pair.
@@ -252,14 +252,14 @@ Many methods will either **require** or **return** different types of data depen
 
 ## Usage
 
-After the wallet has been correctly initialized, the methods provided by the wallet will allow the developer to interact with the 2 Way Chain blockchain network.
+After the wallet has been correctly initialized, the methods provided by the wallet will allow the developer to interact with the Lineage blockchain network.
 
 ### Generating and Testing Seed Phrases
 
 -   `generateSeedPhrase`
 
     ```typescript
-    import { generateSeedPhrase } from '@2waychain/2wayjs';
+    import { generateSeedPhrase } from '@lineage/sdk-js';
 
     const seedPhrase = generateSeedPhrase();
     ```
@@ -267,7 +267,7 @@ After the wallet has been correctly initialized, the methods provided by the wal
 -   `testSeedPhrase`
 
     ```typescript
-    import { testSeedPhrase } from '@2waychain/2wayjs';
+    import { testSeedPhrase } from '@lineage/sdk-js';
 
     const seedPhrase = 'a seed phrase provided by the user that looks like a bunch of random words';
 
@@ -285,7 +285,7 @@ Since a seed phrase can be used to reconstruct lost/missing key-pairs, it is cus
 -   `getNewKeypair`
 
     ```typescript
-    import { Wallet } from '@2waychain/2wayjs';
+    import { Wallet } from '@lineage/sdk-js';
 
     const wallet = new Wallet();
 
@@ -309,7 +309,7 @@ Since a seed phrase can be used to reconstruct lost/missing key-pairs, it is cus
 -   `fetchBalance`
 
     ```typescript
-    import { Wallet } from '@2waychain/2wayjs';
+    import { Wallet } from '@lineage/sdk-js';
 
     const wallet = new Wallet();
 
@@ -386,7 +386,7 @@ Since a seed phrase can be used to reconstruct lost/missing key-pairs, it is cus
 
 ### Creating Item Assets
 
-Items are the NFTs of the 2 Way blockchain, but unlike NFTs don't require you to write any Smart Contracts
+Items are the NFTs of the Lineage blockchain, but unlike NFTs don't require you to write any Smart Contracts
 or complex logic to create.
 
 -   `createItems`
@@ -399,7 +399,7 @@ or complex logic to create.
 | metadata         | `string`            | null        | no           | Optional metadata that you can attach to the asset                                                                                                                                         |
 
 ```typescript
-import { Wallet } from '@2waychain/2wayjs';
+import { Wallet } from '@lineage/sdk-js';
 
 const wallet = new Wallet();
 
@@ -467,7 +467,7 @@ const createItemResponse = await wallet.createItems(
 | excessKeypair  | `IKeypairEncrypted`    |             | yes          | Excess keypair to send any remaining balance to                                                                                 |
 
 ```typescript
-import { Wallet } from '@2waychain/2wayjs';
+import { Wallet } from '@lineage/sdk-js';
 
 const wallet = new Wallet();
 
@@ -504,7 +504,7 @@ await makeTokenPayment(
 | excessKeypair  | `IKeypairEncrypted`    |             | yes          | Excess keypair to send any remaining balance to                                                                                 |
 
 ```typescript
-import { Wallet } from '@2waychain/2wayjs';
+import { Wallet } from '@lineage/sdk-js';
 
 const wallet = new Wallet();
 
@@ -546,7 +546,7 @@ await makeItemPayment(
 | entryValueId | `String`            |             | yes          | A value id for a specific 2-way transaction entry |
 
 ```typescript
-import { Wallet } from '@2waychain/2wayjs';
+import { Wallet } from '@lineage/sdk-js';
 
 const wallet = new Wallet();
 
@@ -593,7 +593,7 @@ const paymentResult = await make2WayPayment(
 -   `fetchPending2WayPayments`
 
     ```typescript
-    import { Wallet } from '@2waychain/2wayjs';
+    import { Wallet } from '@lineage/sdk-js';
 
     const wallet = new Wallet();
 
@@ -660,7 +660,7 @@ const paymentResult = await make2WayPayment(
 -   `accept2WayPayment` and `reject2WayPayment`
 
     ```typescript
-    import { Wallet } from '@2waychain/2wayjs';
+    import { Wallet } from '@lineage/sdk-js';
 
     const wallet = new Wallet();
 

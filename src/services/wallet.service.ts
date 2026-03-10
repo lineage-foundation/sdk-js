@@ -752,7 +752,7 @@ export class Wallet {
 
     /**
      * Save keypairs to localStorage. (Browser)
-     * It is recommended to use user defined methods for I/O operations (see https://github.com/AIBlockOfficial/2Way.js#getting-started)
+     * It is recommended to use user defined methods for I/O operations (see https://github.com/lineage-foundation/sdk-js#getting-started)
      *
      * @param {IKeypairEncrypted} encryptedKeypair - Encrypted key-pair to save
      * @return {*} {void}
@@ -780,7 +780,7 @@ export class Wallet {
 
     /**
      * Get keypairs from localStorage. (Browser)
-     * It is recommended to use user defined methods for I/O operations (see https://github.com/AIBlockOfficial/2Way.js#getting-started)
+     * It is recommended to use user defined methods for I/O operations (see https://github.com/lineage-foundation/sdk-js#getting-started)
      *
      * @export
      * @param {string} keypairs IKeypairEncrypted[] flattened to a string
