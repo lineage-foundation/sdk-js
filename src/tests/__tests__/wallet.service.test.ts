@@ -1,5 +1,36 @@
-import { MK, CONFIG } from '../constants';
+import nock from 'nock';
+
+import { MK, CONFIG, FETCH_BALANCE_RESPONSE_TEST } from '../constants';
 import { Wallet } from '../../services/wallet.service';
+
+// `initNetwork` still fetches the PoW route list on init (unchanged in this task), and
+// `fetchBalance`/`fetchTransactions` now hit the `/v1` REST API - mock all of it so this
+// suite runs fully offline.
+[CONFIG.mempoolHost, CONFIG.storageHost].forEach((host) => {
+    nock(host)
+        .persist()
+        .get('/debug_data')
+        .reply(200, {
+            status: 'Success',
+            content: { node_type: 'Node', node_api: [], node_peers: [], routes_pow: {} },
+        });
+});
+
+nock(CONFIG.mempoolHost)
+    .persist()
+    .post('/v1/balances/query')
+    .reply(200, { balance: FETCH_BALANCE_RESPONSE_TEST });
+
+nock(CONFIG.storageHost)
+    .persist()
+    .post('/v1/blockchain-entries/query')
+    .reply(200, [
+        {
+            key: '000000',
+            item_meta: { type: 'tx', block_num: 0, tx_num: 0 },
+            data: { inputs: [], outputs: [], version: 0, druid_info: null },
+        },
+    ]);
 
 let walletInstance = new Wallet();
 

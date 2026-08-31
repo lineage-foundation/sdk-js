@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import {
     IAPIRoute,
+    IApiProblemResponse,
     IAssetItem,
     IAssetToken,
     IClientConfig,
@@ -10,6 +11,8 @@ import {
     ICreateTransactionEncrypted,
     IDruidExpectation,
     IErrorInternal,
+    IFetchBalanceResponse,
+    IFetchTransactionsResponse,
     IGenericKeyPair,
     IKeypairEncrypted,
     IMasterKeyEncrypted,
@@ -58,6 +61,7 @@ export class Wallet {
     private mempoolHost: string | undefined;
     private storageHost: string | undefined;
     private valenceHost: string | undefined;
+    private apiKey: string | undefined;
     private keyMgmt: mgmtClient | undefined;
     private mempoolRoutesPoW: Map<string, number> | undefined;
     private storageRoutesPoW: Map<string, number> | undefined;
@@ -69,6 +73,7 @@ export class Wallet {
         this.mempoolHost = undefined;
         this.storageHost = undefined;
         this.valenceHost = undefined;
+        this.apiKey = undefined;
         this.keyMgmt = undefined;
         this.mempoolRoutesPoW = undefined;
         this.storageRoutesPoW = undefined;
@@ -225,6 +230,7 @@ export class Wallet {
         this.mempoolHost = config.mempoolHost;
         this.storageHost = config.storageHost;
         this.valenceHost = config.valenceHost;
+        this.apiKey = config.apiKey;
 
         if (this.mempoolHost === undefined)
             return {
@@ -279,31 +285,22 @@ export class Wallet {
         }
 
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
+            const result = await this.apiRequest<{ balance: IFetchBalanceResponse }>(
+                this.mempoolHost,
                 IAPIRoute.FetchBalance,
+                'POST',
+                { addresses: addressList },
             );
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.mempoolHost}${IAPIRoute.FetchBalance}`,
-                    addressList,
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            fetchBalanceResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /fetch_balance: ${error}`);
-                    throw new Error('Unable to fetch balance from mempool successfully');
-                });
+            if (result.status === 'error') throw new Error(result.reason);
+
+            return {
+                status: 'success',
+                content: {
+                    fetchBalanceResponse: result.data.balance,
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -327,32 +324,23 @@ export class Wallet {
 
         try {
             if (!this.keyMgmt) throw new Error(IErrorInternal.ClientNotInitialized);
-            if (!this.storageHost || !this.storageRoutesPoW)
+            if (!this.storageHost)
                 /* Storage is optional on wallet init, but must be initialized here */
                 throw new Error(IErrorInternal.StorageNotInitialized);
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
-                IAPIRoute.FetchBalance,
+            const result = await this.apiRequest<IFetchTransactionsResponse>(
+                this.storageHost,
+                IAPIRoute.BlockchainEntry,
+                'POST',
+                { keys: transactionHashes },
             );
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.storageHost}${IAPIRoute.BlockchainEntry}`,
-                    transactionHashes,
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            fetchTransactionsResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /blockchain_entry: ${error}`);
-                    throw new Error('Unable to fetch blockchain entry from storage successfully');
-                });
+            if (result.status === 'error') throw new Error(result.reason);
+
+            return {
+                status: 'success',
+                content: {
+                    fetchTransactionsResponse: result.data,
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -1425,5 +1413,52 @@ export class Wallet {
                 ...createIdAndNonceHeaders(routeDifficulty).headers,
             },
         };
+    }
+
+    /**
+     * Send a request to the fleet `/v1` REST API and normalize the result.
+     *
+     * On a 2xx response the raw JSON body is returned as-is. On a non-2xx response the
+     * `application/problem+json` body (`detail`/`title`) is mapped to an error result.
+     *
+     * @private
+     * @template T - Shape of the successful response body
+     * @param {string} host - Base host to send the request to
+     * @param {IAPIRoute} route - `/v1` route to call
+     * @param {('GET' | 'POST')} method - HTTP method to use
+     * @param {unknown} [body] - Request body, for `POST` requests
+     * @return {*}  {(Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }>)}
+     * @memberof Wallet
+     */
+    private async apiRequest<T>(
+        host: string,
+        route: IAPIRoute,
+        method: 'GET' | 'POST',
+        body?: unknown,
+    ): Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }> {
+        try {
+            const response = await axios.request<T>({
+                url: `${host}${route}`,
+                method,
+                data: body,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
+                },
+                validateStatus: () => true,
+            });
+
+            if (response.status >= 200 && response.status < 300) {
+                return { status: 'success', data: response.data };
+            }
+
+            const problem = response.data as IApiProblemResponse | undefined;
+            return {
+                status: 'error',
+                reason: problem?.detail || problem?.title || IErrorInternal.UnknownError,
+            };
+        } catch (error) {
+            return { status: 'error', reason: `${error}` };
+        }
     }
 }

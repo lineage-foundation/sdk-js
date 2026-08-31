@@ -56,12 +56,12 @@ export type IApiContentType = {
 export enum IAPIRoute {
     /* ------------------------------- MEMPOOL Network Routes ------------------------------- */
     DebugData = '/debug_data',
-    FetchBalance = '/fetch_balance',
-    CreateTransactions = '/create_transactions',
-    CreateItemAsset = '/create_item_asset',
+    FetchBalance = '/v1/balances/query',
+    CreateTransactions = '/v1/transactions',
+    CreateItemAsset = '/v1/items',
     FetchPending = '/fetch_pending',
     /* --------------------------- Storage Network Routes --------------------------- */
-    BlockchainEntry = '/blockchain_entry',
+    BlockchainEntry = '/v1/blockchain-entries/query',
     /* ----------------------------- Valence Routes ---------------------------- */
     ValenceSet = '/set_data',
     ValenceGet = '/get_data',
@@ -98,7 +98,28 @@ export type IMakePaymentResponse = {
     usedAddresses: string[];
 };
 
-export type IFetchTransactionsResponse = (ITransaction | string)[][];
+// `/v1/blockchain-entries/query` entry metadata (block or transaction position)
+export type IBlockchainItemMeta =
+    | { type: 'block'; block_num: number; tx_len: number }
+    | { type: 'tx'; block_num: number; tx_num: number };
+
+// A single stored blockchain entry, as returned by `/v1/blockchain-entries/query`
+export type IBlockchainEntry = {
+    key: string;
+    item_meta: IBlockchainItemMeta;
+    data: ITransaction | unknown;
+};
+
+export type IFetchTransactionsResponse = IBlockchainEntry[];
+
+// `application/problem+json` error body returned by the `/v1` API on non-2xx responses
+export type IApiProblemResponse = {
+    type?: string;
+    title?: string;
+    status?: number;
+    detail?: string;
+    code?: string;
+};
 
 // `/debug_data` endpoint response
 export type IDebugDataResponse = {
@@ -108,7 +129,7 @@ export type IDebugDataResponse = {
     routes_pow: IGenericKeyPair<number>;
 };
 
-// `/fetch_balance` endpoint response
+// `/v1/balances/query` endpoint response (the `balance` field of the response body)
 export type IFetchBalanceResponse = {
     total: {
         tokens: number;
