@@ -8,30 +8,12 @@ const STORAGE_HOST = 'http://storage.reads.test';
 
 const [ADDRESS_ONE, ADDRESS_TWO] = Object.keys(ADDRESS_LIST_TEST);
 
-// `initNetwork` still fetches the PoW route list on init (unchanged in this task); mock it
-// so the reads under test can be exercised fully offline.
-const mockDebugData = (host: string) =>
-    nock(host)
-        .persist()
-        .get('/debug_data')
-        .reply(200, {
-            status: 'Success',
-            content: {
-                node_type: 'Storage',
-                node_api: [],
-                node_peers: [],
-                routes_pow: {},
-            },
-        });
-
 afterEach(() => {
     nock.cleanAll();
 });
 
 describe('fetchBalance', () => {
     test('sends POST {mempoolHost}/v1/balances/query and returns the balance content', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         const balance = {
             total: { tokens: 60, items: {} },
             address_list: {
@@ -55,8 +37,6 @@ describe('fetchBalance', () => {
     });
 
     test('sends the configured x-api-key header', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         const balance = { total: { tokens: 0, items: {} }, address_list: {} };
         const scope = nock(MEMPOOL_HOST, { reqheaders: { 'x-api-key': 'my-api-key' } })
             .post('/v1/balances/query')
@@ -76,8 +56,6 @@ describe('fetchBalance', () => {
     });
 
     test('maps an application/problem+json error response to an error result', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         nock(MEMPOOL_HOST).post('/v1/balances/query').reply(
             500,
             {
@@ -101,9 +79,6 @@ describe('fetchBalance', () => {
 
 describe('fetchTransactions', () => {
     test('sends POST {storageHost}/v1/blockchain-entries/query and returns the entries content', async () => {
-        mockDebugData(MEMPOOL_HOST);
-        mockDebugData(STORAGE_HOST);
-
         const entries = [
             {
                 key: '000000',
@@ -131,9 +106,6 @@ describe('fetchTransactions', () => {
     });
 
     test('maps an application/problem+json error response to an error result', async () => {
-        mockDebugData(MEMPOOL_HOST);
-        mockDebugData(STORAGE_HOST);
-
         nock(STORAGE_HOST).post('/v1/blockchain-entries/query').reply(
             500,
             {

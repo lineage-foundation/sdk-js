@@ -1,5 +1,3 @@
-import { sha3_256 } from 'js-sha3';
-import { Buffer } from 'buffer';
 import { ok } from 'neverthrow';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,30 +15,6 @@ type TypedArray =
     | Uint32Array
     | Float32Array
     | Float64Array;
-
-/**
- * Cast `status` received from 2 Way network to lowercase string variant
- *
- * TODO: There's probably already a built-in function for this?
- *
- * @export
- * @param {('Success' | 'Error' | 'InProgress' | 'Unknown')} status
- * @return {*}  {('success' | 'error' | 'pending' | 'unknown')}
- */
-export function castAPIStatus(
-    status: 'Success' | 'Error' | 'InProgress' | 'Unknown',
-): 'success' | 'error' | 'pending' | 'unknown' {
-    switch (status) {
-        case 'Success':
-            return 'success';
-        case 'Error':
-            return 'error';
-        case 'InProgress':
-            return 'pending';
-        default:
-            return 'unknown';
-    }
-}
 
 /**
  * Converts a string into a byte array for handling by nacl
@@ -195,51 +169,6 @@ export function throwIfIClientError(result: IClientResponse): IClientResponse {
     if (result.status === 'error')
         throw new Error(result.reason ? result.reason : IErrorInternal.UnknownError);
     return result;
-}
-
-/**
- * Calculate the nonce value required to provide valid PoW
- * for a specified ID (challenge) and target (difficulty)
- *
- * @export
- * @param {number} target
- * @param {string} id
- * @return {*}  {number}
- */
-export function calculateNonceForId(target: number, id: string): number {
-    let nonce = 0;
-    let hashBuffer = Buffer.from(sha3_256(`${nonce}-${id}`), 'hex');
-    while (
-        !Array.from(hashBuffer)
-            .slice(0, target)
-            .every((e) => e === 0)
-    ) {
-        nonce++;
-        hashBuffer = Buffer.from(sha3_256(`${nonce}-${id}`), 'hex');
-    }
-    return nonce;
-}
-
-/**
- * Create a unique ID as well as the required nonce for PoW
- *
- * @export
- * @param {number} [difficulty]
- * @return {*}  {{
- *     headers: { 'x-cache-id': string; 'x-nonce': number };
- * }}
- */
-export function createIdAndNonceHeaders(difficulty?: number): {
-    headers: { 'x-cache-id': string; 'x-nonce': number };
-} {
-    const id = getUniqueID();
-    const nonce = difficulty ? calculateNonceForId(difficulty, id) : 0;
-    return {
-        headers: {
-            'x-cache-id': id,
-            'x-nonce': nonce,
-        },
-    };
 }
 
 /**

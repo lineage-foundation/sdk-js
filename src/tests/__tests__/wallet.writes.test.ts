@@ -8,25 +8,12 @@ const MEMPOOL_HOST = 'http://mempool.writes.test';
 
 const [PAYMENT_ADDRESS] = Object.keys(ADDRESS_LIST_TEST);
 
-// `initNetwork` still fetches the PoW route list on init (unchanged in this task); mock it
-// so the writes under test can be exercised fully offline.
-const mockDebugData = (host: string) =>
-    nock(host)
-        .persist()
-        .get('/debug_data')
-        .reply(200, {
-            status: 'Success',
-            content: { node_type: 'Mempool', node_api: [], node_peers: [], routes_pow: {} },
-        });
-
 afterEach(() => {
     nock.cleanAll();
 });
 
 describe('createItems', () => {
     test('sends POST {mempoolHost}/v1/items without a `version` field and maps the response', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         const wallet = new Wallet();
         const init = await wallet.initNew({ mempoolHost: MEMPOOL_HOST, passphrase: 'test' });
         expect(init.status).toBe('success');
@@ -70,8 +57,6 @@ describe('createItems', () => {
     });
 
     test('maps an application/problem+json error response to an error result', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         const wallet = new Wallet();
         await wallet.initNew({ mempoolHost: MEMPOOL_HOST, passphrase: 'test' });
         const keypair = wallet.getNewKeypair([]).content?.newKeypairResponse;
@@ -96,8 +81,6 @@ describe('createItems', () => {
 
 describe('makeTokenPayment', () => {
     test('sends POST {mempoolHost}/v1/transactions with `fees: null` and maps the response', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         const wallet = new Wallet();
         const init = await wallet.initNew({ mempoolHost: MEMPOOL_HOST, passphrase: 'test' });
         expect(init.status).toBe('success');
@@ -162,8 +145,6 @@ describe('makeTokenPayment', () => {
     });
 
     test('maps an application/problem+json error response to an error result', async () => {
-        mockDebugData(MEMPOOL_HOST);
-
         const wallet = new Wallet();
         await wallet.initNew({ mempoolHost: MEMPOOL_HOST, passphrase: 'test' });
 

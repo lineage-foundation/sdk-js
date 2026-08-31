@@ -3,19 +3,8 @@ import nock from 'nock';
 import { MK, CONFIG, FETCH_BALANCE_RESPONSE_TEST } from '../constants';
 import { Wallet } from '../../services/wallet.service';
 
-// `initNetwork` still fetches the PoW route list on init (unchanged in this task), and
-// `fetchBalance`/`fetchTransactions` now hit the `/v1` REST API - mock all of it so this
-// suite runs fully offline.
-[CONFIG.mempoolHost, CONFIG.storageHost].forEach((host) => {
-    nock(host)
-        .persist()
-        .get('/debug_data')
-        .reply(200, {
-            status: 'Success',
-            content: { node_type: 'Node', node_api: [], node_peers: [], routes_pow: {} },
-        });
-});
-
+// `fetchBalance`/`fetchTransactions` now hit the `/v1` REST API - mock it so this suite
+// runs fully offline.
 nock(CONFIG.mempoolHost)
     .persist()
     .post('/v1/balances/query')
