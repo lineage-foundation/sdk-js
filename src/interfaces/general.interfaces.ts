@@ -9,6 +9,7 @@ export type IClientConfig = {
     mempoolHost?: string;
     storageHost?: string;
     valenceHost?: string;
+    apiKey?: string;
     passphrase: string /* Required */;
 };
 

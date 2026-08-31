@@ -100,6 +100,7 @@ export const validateConfig = (config: IClientConfig) => {
         mempoolHost: Joi.string().uri(uri_scheme).optional(),
         storageHost: Joi.string().uri(uri_scheme).optional(),
         valenceHost: Joi.string().uri(uri_scheme).optional(),
+        apiKey: Joi.string().optional(),
         passphrase: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{0,30}$')).required(),
     });
     return configSchema.validate(config);

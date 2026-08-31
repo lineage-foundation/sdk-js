@@ -3,10 +3,8 @@
 import {
     addLhsAssetToRhsAsset,
     assetsAreCompatible,
-    calculateNonceForId,
     generateValenceSetBody,
     generateVerificationHeaders,
-    getUniqueID,
     initIAssetItem,
     initIAssetToken,
     isOfTypeIAssetItem,
@@ -17,23 +15,8 @@ import {
     lhsAssetIsGreaterThanRhsAsset,
     lhsAssetIsEqOrGreaterThanRhsAsset,
 } from '../../utils';
-import { sha3_256 } from 'js-sha3';
 import { IKeypair } from '../../interfaces';
 import { DEFAULT_GENESIS_HASH_SPEC, DEFAULT_HEADERS } from '../../mgmt';
-/* -------------------------------------------------------------------------- */
-/*                           General Utilities Tests                          */
-/* -------------------------------------------------------------------------- */
-
-test('create valid proof-of-work', () => {
-    const difficulty = 2;
-    const id = getUniqueID();
-    const nonce = calculateNonceForId(difficulty, id);
-    expect(
-        Array.from(Buffer.from(sha3_256(`${nonce}-${id}`), 'hex'))
-            .slice(0, difficulty)
-            .every((e) => e === 0),
-    ).toBe(true);
-});
 
 /* -------------------------------------------------------------------------- */
 /*                          Interface Utilities Tests                         */

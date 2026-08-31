@@ -2,18 +2,22 @@ import axios from 'axios';
 
 import {
     IAPIRoute,
+    IApiProblemResponse,
     IAssetItem,
     IAssetToken,
     IClientConfig,
     IClientResponse,
+    ICreateItemResponse,
     ICreateTransaction,
     ICreateTransactionEncrypted,
+    ICreateTransactionsResponse,
     IDruidExpectation,
     IErrorInternal,
+    IFetchBalanceResponse,
+    IFetchTransactionsResponse,
     IGenericKeyPair,
     IKeypairEncrypted,
     IMasterKeyEncrypted,
-    INetworkResponse,
     IPending2WResponse,
     IPending2WTxDetails,
     IRequestValenceResponse,
@@ -24,13 +28,10 @@ import {
     createPaymentTx,
     create2WTxHalf,
     createItemPayload,
-    DEFAULT_HEADERS,
     ITEM_DEFAULT,
     SEED_REGEN_THRES,
 } from '../mgmt';
 import {
-    castAPIStatus,
-    createIdAndNonceHeaders,
     initIAssetItem,
     initIAssetToken,
     throwIfErr,
@@ -46,7 +47,6 @@ import {
     validateTransactionHash,
     validateMetadata,
     validateKeypairEncrypted,
-    validateURL,
 } from '../utils/validations.utils';
 import { mgmtClient } from './mgmt.service';
 import { ADDRESS_VERSION } from '../mgmt/constants';
@@ -58,9 +58,8 @@ export class Wallet {
     private mempoolHost: string | undefined;
     private storageHost: string | undefined;
     private valenceHost: string | undefined;
+    private apiKey: string | undefined;
     private keyMgmt: mgmtClient | undefined;
-    private mempoolRoutesPoW: Map<string, number> | undefined;
-    private storageRoutesPoW: Map<string, number> | undefined;
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
@@ -69,9 +68,8 @@ export class Wallet {
         this.mempoolHost = undefined;
         this.storageHost = undefined;
         this.valenceHost = undefined;
+        this.apiKey = undefined;
         this.keyMgmt = undefined;
-        this.mempoolRoutesPoW = undefined;
-        this.storageRoutesPoW = undefined;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -210,7 +208,7 @@ export class Wallet {
     }
 
     /**
-     * Common network initialization (retrieval of PoW list for compute and storage)
+     * Common network initialization (sets and validates the configured hosts)
      *
      * @param {IClientConfig} config - Configuration parameters
      * @return {*}  {IClientResponse}
@@ -225,30 +223,13 @@ export class Wallet {
         this.mempoolHost = config.mempoolHost;
         this.storageHost = config.storageHost;
         this.valenceHost = config.valenceHost;
+        this.apiKey = config.apiKey;
 
         if (this.mempoolHost === undefined)
             return {
                 status: 'error',
                 reason: IErrorInternal.NoComputeHostProvided,
             } as IClientResponse;
-
-        // Initialize routes proof-of-work for compute host
-        this.mempoolRoutesPoW = new Map();
-        const initComputeResult = await this.initNetworkForHost(
-            this.mempoolHost,
-            this.mempoolRoutesPoW,
-        );
-        if (initComputeResult.status === 'error') return initComputeResult;
-
-        // Optional - Initialize routes proof-of-work for storage host
-        if (this.storageHost !== undefined) {
-            this.storageRoutesPoW = new Map();
-            const initStorageResult = await this.initNetworkForHost(
-                this.storageHost,
-                this.storageRoutesPoW,
-            );
-            if (initStorageResult.status === 'error') return initStorageResult;
-        }
 
         if (
             this.mempoolHost === undefined &&
@@ -279,31 +260,22 @@ export class Wallet {
         }
 
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
+            const result = await this.apiRequest<{ balance: IFetchBalanceResponse }>(
+                this.mempoolHost,
                 IAPIRoute.FetchBalance,
+                'POST',
+                { addresses: addressList },
             );
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.mempoolHost}${IAPIRoute.FetchBalance}`,
-                    addressList,
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            fetchBalanceResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /fetch_balance: ${error}`);
-                    throw new Error('Unable to fetch balance from mempool successfully');
-                });
+            if (result.status === 'error') throw new Error(result.reason);
+
+            return {
+                status: 'success',
+                content: {
+                    fetchBalanceResponse: result.data.balance,
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -327,32 +299,23 @@ export class Wallet {
 
         try {
             if (!this.keyMgmt) throw new Error(IErrorInternal.ClientNotInitialized);
-            if (!this.storageHost || !this.storageRoutesPoW)
+            if (!this.storageHost)
                 /* Storage is optional on wallet init, but must be initialized here */
                 throw new Error(IErrorInternal.StorageNotInitialized);
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
-                IAPIRoute.FetchBalance,
+            const result = await this.apiRequest<IFetchTransactionsResponse>(
+                this.storageHost,
+                IAPIRoute.BlockchainEntry,
+                'POST',
+                { keys: transactionHashes },
             );
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.storageHost}${IAPIRoute.BlockchainEntry}`,
-                    transactionHashes,
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            fetchTransactionsResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /blockchain_entry: ${error}`);
-                    throw new Error('Unable to fetch blockchain entry from storage successfully');
-                });
+            if (result.status === 'error') throw new Error(result.reason);
+
+            return {
+                status: 'success',
+                content: {
+                    fetchTransactionsResponse: result.data,
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -382,10 +345,11 @@ export class Wallet {
         }
 
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             const keyPair = throwIfErr(this.keyMgmt.decryptKeypair(address));
-            // Create item-creation transaction
+            // Create item-creation transaction (client-signed; the signable asset hash is
+            // unaffected by the legacy `version` field dropped from the API body below)
             const createItemBody = throwIfErr(
                 createItemPayload(
                     keyPair.secretKey,
@@ -396,30 +360,28 @@ export class Wallet {
                     metadata,
                 ),
             );
-            // Generate needed headers
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
+
+            const result = await this.apiRequest<ICreateItemResponse>(
+                this.mempoolHost,
                 IAPIRoute.CreateItemAsset,
+                'POST',
+                {
+                    item_amount: createItemBody.item_amount,
+                    genesis_hash_spec: createItemBody.genesis_hash_spec,
+                    metadata: createItemBody.metadata,
+                    script_public_key: createItemBody.script_public_key,
+                    public_key: createItemBody.public_key,
+                    signature: createItemBody.signature,
+                },
             );
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.mempoolHost}${IAPIRoute.CreateItemAsset}`,
-                    createItemBody,
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            createItemResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /create_item_asset: ${error}`);
-                    throw new Error('Unable to create Item asset on mempool successfully');
-                });
+            if (result.status === 'error') throw new Error(result.reason);
+
+            return {
+                status: 'success',
+                content: {
+                    createItemResponse: result.data,
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -827,7 +789,7 @@ export class Wallet {
         receiveAddress: IKeypairEncrypted,
     ): Promise<IClientResponse> {
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             if (!this.valenceHost) throw new Error(IErrorInternal.ValenceNotInitialized);
             const senderKeypair = throwIfErr(this.keyMgmt.decryptKeypair(receiveAddress));
@@ -940,7 +902,7 @@ export class Wallet {
         allEncryptedTxs: ICreateTransactionEncrypted[] = [],
     ): Promise<IClientResponse> {
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             if (!this.valenceHost) throw new Error(IErrorInternal.ValenceNotInitialized);
 
@@ -1012,28 +974,25 @@ export class Wallet {
                     );
                 }
 
-                // Generate the required headers
-                const headers = this.getRequestIdAndNonceHeadersForRoute(
-                    this.mempoolRoutesPoW,
+                // Send transactions to mempool for processing. `fees` and `druid_info.genesis_hash`
+                // aren't part of the signed transaction - they're explicit (nullable) fields
+                // required by the `/v1/transactions` DTO.
+                // NB: Make sure we use the same mempool host when initializing all 2 way payments
+                const sendResult = await this.apiRequest<ICreateTransactionsResponse>(
+                    this.mempoolHost,
                     IAPIRoute.CreateTransactions,
+                    'POST',
+                    {
+                        transactions: transactionsToSend.map((tx) => ({
+                            ...tx,
+                            fees: null,
+                            druid_info: tx.druid_info
+                                ? { ...tx.druid_info, genesis_hash: null }
+                                : null,
+                        })),
+                    },
                 );
-
-                // Send transactions to mempool for processing
-                await axios
-                    .post<INetworkResponse>(
-                        // NB: Make sure we use the same mempool host when initializing all 2 way payments
-                        `${this.mempoolHost}${IAPIRoute.CreateTransactions}`,
-                        transactionsToSend,
-                        { ...headers, validateStatus: () => true },
-                    )
-                    .then(async (response) => {
-                        if (castAPIStatus(response.data.status) === 'error')
-                            throw new Error(response.data.reason);
-                    })
-                    .catch(async (error) => {
-                        if (error instanceof Error) throw new Error(error.message);
-                        else throw new Error(`${error}`);
-                    });
+                if (sendResult.status === 'error') throw new Error(sendResult.reason);
 
                 // Add rejected item-based transactions to delete list as well
                 if (Object.entries(rejected2WTxs).length > 0) {
@@ -1093,7 +1052,7 @@ export class Wallet {
         allKeypairs: IKeypairEncrypted[],
     ): Promise<IClientResponse> {
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             if (!this.valenceHost) throw new Error(IErrorInternal.ValenceNotInitialized);
             const [allAddresses, keyPairMap] = throwIfErr(
@@ -1135,28 +1094,28 @@ export class Wallet {
                     constructTxInsAddress(send2WTxHalf.createTx.inputs),
                 );
 
-                // Generate the required headers
-                const headers = this.getRequestIdAndNonceHeadersForRoute(
-                    this.mempoolRoutesPoW,
+                // Send transaction to mempool to be added to the current DRUID pool. `fees` and
+                // `druid_info.genesis_hash` aren't part of the signed transaction - they're
+                // explicit (nullable) fields required by the `/v1/transactions` DTO.
+                const tx = send2WTxHalf.createTx;
+                const sendResult = await this.apiRequest<ICreateTransactionsResponse>(
+                    // We send this transaction to the mempool node specified by the sending party
+                    txInfo.mempoolHost,
                     IAPIRoute.CreateTransactions,
+                    'POST',
+                    {
+                        transactions: [
+                            {
+                                ...tx,
+                                fees: null,
+                                druid_info: tx.druid_info
+                                    ? { ...tx.druid_info, genesis_hash: null }
+                                    : null,
+                            },
+                        ],
+                    },
                 );
-
-                // Send transaction to mempool to be added to the current DRUID pool
-                await axios
-                    .post<INetworkResponse>(
-                        // We send this transaction to the mempool node specified by the sending party
-                        `${txInfo.mempoolHost}${IAPIRoute.CreateTransactions}`,
-                        [send2WTxHalf.createTx],
-                        { ...headers, validateStatus: () => true },
-                    )
-                    .then((response) => {
-                        if (castAPIStatus(response.data.status) !== 'success')
-                            throw new Error(response.data.reason);
-                    })
-                    .catch(async (error) => {
-                        if (error instanceof Error) throw new Error(error.message);
-                        else throw new Error(`${error}`);
-                    });
+                if (sendResult.status === 'error') throw new Error(sendResult.reason);
             }
 
             // Send the updated status of the transaction on the valence server
@@ -1226,34 +1185,6 @@ export class Wallet {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * Common network initialization (retrieval of PoW list)
-     *
-     * @private
-     * @param {IClientConfig} config - Additional configuration parameters
-     * @return {*}  {IClientResponse}
-     * @memberof Wallet
-     */
-    private async initNetworkForHost(
-        host: string,
-        routesPow: Map<string, number>,
-    ): Promise<IClientResponse> {
-        // Set routes proof-of-work requirements
-        const debugData = await this.getDebugData(host);
-        if (debugData.status === 'error')
-            return {
-                status: 'error',
-                reason: debugData.reason,
-            } as IClientResponse;
-        else if (debugData.status === 'success' && debugData.content?.debugDataResponse)
-            for (const route in debugData.content.debugDataResponse.routes_pow) {
-                routesPow.set(route, debugData.content.debugDataResponse.routes_pow[route]);
-            }
-        return {
-            status: 'success',
-        } as IClientResponse;
-    }
-
-    /**
      * Make a payment of a certain asset to a specified destination
      *
      * @private
@@ -1290,7 +1221,7 @@ export class Wallet {
 
         // Proceed with payment
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             const [allAddresses, keyPairMap] = throwIfErr(
                 this.keyMgmt.getAllAddressesAndKeypairMap(allKeypairs),
@@ -1304,7 +1235,7 @@ export class Wallet {
             // Get all existing addresses
             if (allKeypairs.length === 0) throw new Error(IErrorInternal.NoKeypairsProvided);
 
-            // Create transaction
+            // Create transaction (client-signed; unchanged construction)
             const paymentBody = throwIfErr(
                 createPaymentTx(
                     paymentAddress,
@@ -1318,38 +1249,27 @@ export class Wallet {
 
             const { usedAddresses } = paymentBody;
 
-            // Generate the needed headers
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
+            // Send transaction to mempool for processing. `fees` isn't part of the signed
+            // transaction - it's an explicit (nullable) field required by the `/v1/transactions` DTO.
+            const result = await this.apiRequest<ICreateTransactionsResponse>(
+                this.mempoolHost,
                 IAPIRoute.CreateTransactions,
+                'POST',
+                { transactions: [{ ...paymentBody.createTx, fees: null }] },
             );
+            if (result.status === 'error') throw new Error(result.reason);
 
-            // Send transaction to mempool for processing
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.mempoolHost}${IAPIRoute.CreateTransactions}`,
-                    [paymentBody.createTx],
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            makePaymentResponse: throwIfErr(
-                                transformCreateTxResponseFromNetwork(
-                                    usedAddresses,
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    response.data.content as any,
-                                ),
-                            ),
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /create_transactions: ${error}`);
-                    throw new Error('Unable to create transactions on mempool successfully');
-                });
+            return {
+                status: 'success',
+                content: {
+                    makePaymentResponse: throwIfErr(
+                        transformCreateTxResponseFromNetwork(
+                            usedAddresses,
+                            result.data.transactions,
+                        ),
+                    ),
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -1359,71 +1279,49 @@ export class Wallet {
     }
 
     /**
-     * Get information regarding the PoW required for all routes
+     * Send a request to the fleet `/v1` REST API and normalize the result.
+     *
+     * On a 2xx response the raw JSON body is returned as-is. On a non-2xx response the
+     * `application/problem+json` body (`detail`/`title`) is mapped to an error result.
      *
      * @private
-     * @param {(string)} host - Host address to retrieve proof-of-work data from
-     * @return {*}  {Promise<IClientResponse>}
+     * @template T - Shape of the successful response body
+     * @param {string} host - Base host to send the request to
+     * @param {IAPIRoute} route - `/v1` route to call
+     * @param {('GET' | 'POST')} method - HTTP method to use
+     * @param {unknown} [body] - Request body, for `POST` requests
+     * @return {*}  {(Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }>)}
      * @memberof Wallet
      */
-    private async getDebugData(host: string): Promise<IClientResponse> {
-        const validHost = validateURL(host);
-        if (validHost.error) return handleValidationFailures([validHost.error]);
-
+    private async apiRequest<T>(
+        host: string,
+        route: IAPIRoute,
+        method: 'GET' | 'POST',
+        body?: unknown,
+    ): Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }> {
         try {
-            return await axios
-                .get<INetworkResponse>(`${host}${IAPIRoute.DebugData}`)
-                .then(async (response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            debugDataResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /debug_data: ${error}`);
-                    throw new Error('Unable to fetch debug data from mempool successfully');
-                });
-        } catch (error) {
+            const response = await axios.request<T>({
+                url: `${host}${route}`,
+                method,
+                data: body,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
+                },
+                validateStatus: () => true,
+            });
+
+            if (response.status >= 200 && response.status < 300) {
+                return { status: 'success', data: response.data };
+            }
+
+            const problem = response.data as IApiProblemResponse | undefined;
             return {
                 status: 'error',
-                reason: `${error}`,
-            } as IClientResponse;
+                reason: problem?.detail || problem?.title || IErrorInternal.UnknownError,
+            };
+        } catch (error) {
+            return { status: 'error', reason: `${error}` };
         }
-    }
-
-    /**
-     * Generate a unique request ID as well as the corresponding
-     * nonce required for a route
-     *
-     * @private
-     * @param {string} route
-     * @return {*}  {{
-     *         headers: {
-     *             'x-cache-id': string;
-     *             'x-nonce': number;
-     *         };
-     *     }}
-     * @memberof Wallet
-     */
-    private getRequestIdAndNonceHeadersForRoute(
-        routesPow: Map<string, number> | undefined,
-        route: string,
-    ): {
-        headers: {
-            'x-cache-id': string;
-            'x-nonce': number;
-        };
-    } {
-        if (!routesPow) throw new Error(IErrorInternal.ClientNotInitialized);
-        const routeDifficulty = routesPow.get(route.slice(1)); // Slice removes the '/' prefix: ;
-        return {
-            headers: {
-                ...DEFAULT_HEADERS.headers,
-                ...createIdAndNonceHeaders(routeDifficulty).headers,
-            },
-        };
     }
 }

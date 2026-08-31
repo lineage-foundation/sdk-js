@@ -7,7 +7,6 @@ export enum ISuccessNetwork {
     ExportKeypairs = 'Key-pairs successfully exported',
     ImportKeypairs = 'Key-pairs successfully imported',
     GetPaymentAddress = 'New payment address generated',
-    GetDebugData = 'Debug data successfully retrieved',
     GetLatestBlock = 'Current mining block successfully retrieved',
     UTXOAddressesRetrieved = 'UTXO addresses successfully retrieved',
     DataBaseItemsRetrieved = 'Database item(s) successfully retrieved',
