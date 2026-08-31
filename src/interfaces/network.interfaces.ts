@@ -48,14 +48,12 @@ export type IApiContentType = {
     fetchBalanceResponse?: IFetchBalanceResponse;
     createItemResponse?: ICreateItemResponse;
     fetchPending2WResponse?: IPending2WResponse;
-    debugDataResponse?: IDebugDataResponse;
     fetchTransactionsResponse?: IFetchTransactionsResponse;
     makePaymentResponse?: IMakePaymentResponse;
 };
 
 export enum IAPIRoute {
     /* ------------------------------- MEMPOOL Network Routes ------------------------------- */
-    DebugData = '/debug_data',
     FetchBalance = '/v1/balances/query',
     CreateTransactions = '/v1/transactions',
     CreateItemAsset = '/v1/items',
@@ -124,14 +122,6 @@ export type IApiProblemResponse = {
     status?: number;
     detail?: string;
     code?: string;
-};
-
-// `/debug_data` endpoint response
-export type IDebugDataResponse = {
-    node_type: string;
-    node_api: string[];
-    node_peers: string[];
-    routes_pow: IGenericKeyPair<number>;
 };
 
 // `/v1/balances/query` endpoint response (the `balance` field of the response body)

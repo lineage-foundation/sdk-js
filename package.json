@@ -1,6 +1,6 @@
 {
   "name": "@lineage/sdk-js",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "description": "API wrapper to access the Lineage blockchain network",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

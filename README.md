@@ -104,7 +104,8 @@ const CONFIG = {
   passphrase: 'a secure passphrase',
 /* Optional, subject to certain requests not being usable.
   storageHost: example.storage.host.com;
-  intercomHost: example.intercom.host.com;
+  valenceHost: example.valence.host.com;
+  apiKey: 'your-api-key';
 */
 };
 
@@ -126,7 +127,7 @@ When the wallet is initialized without a pre-generated seed phrase or existing m
 
 Some arguments during the initialization are optional, such as the `initOffline`- which is used to initialize the wallet in an offline state.
 
-The `mempoolHost` and `intercomHost` interface elements are used to determine the API endpoints for the Mempool node, and Intercom server the wallet is supposed to connect to, respectively.
+The `mempoolHost`, `storageHost` and `valenceHost` interface elements are used to determine the API endpoints for the Mempool node, Storage node, and Valence server the wallet is supposed to connect to, respectively. All requests made to `mempoolHost` and `storageHost` go through the `/v1` REST API, so `initNetwork` no longer performs a `/debug_data` request or any proof-of-work exchange with the node - it just validates and stores the hosts it's given. If your node requires authentication, pass it along as `apiKey`; it's sent as an `x-api-key` header on every `/v1` request. 2-way payments are unaffected by this and still go through the `valenceHost` as before.
 
 A user-defined `passPhrase` needs to be supplied to the wallet during initialization, as this passphrase will be used to encrypt/decrypt data during operations.
 
@@ -188,7 +189,7 @@ const initResult = wallet.initNew({passphrase: 'a secure passphrase'}, true).the
 const config = {
   mempoolHost: 'example.mempool.host.com',
   storageHost: 'example.storage.host.com';
-  intercomHost: 'example.intercom.host.com';
+  valenceHost: 'example.valence.host.com';
 };
 
 // Initialize network configuration when required
@@ -382,6 +383,8 @@ Since a seed phrase can be used to reconstruct lost/missing key-pairs, it is cus
     -   `total`: The total balance of all addresses provided
     -   `address_list`: A list of addresses and their previous out-points along with their associated assets
 
+    Under the hood this comes from a `POST` to `/v1/balances/query` on the `mempoolHost`, which wraps the above in a `balance` field - `wallet.fetchBalance` unwraps it for you, so `content.fetchBalanceResponse` is exactly the object shown above.
+
     </details>
 
 ### Creating Item Assets
@@ -438,18 +441,17 @@ const createItemResponse = await wallet.createItems(
 ```json
 {
     "asset": {
-        "asset": {
-            "Item": {
-                "amount": 1000,
-                "genesis_hash": "g7d07...6704b"
-            }
-        },
+        "kind": "item",
+        "amount": 1000,
+        "genesis_hash": "g7d07...6704b",
         "metadata": null
     },
     "to_address": "a0b08...c02e5",
     "tx_hash": "g7d07...6704b"
 }
 ```
+
+This is the response body of `POST /v1/items` on the `mempoolHost`, returned as-is as `content.createItemResponse`.
 
 -   `genesis_hash`: The genesis hash identifier associated with the created `Item` assets.
 
@@ -490,6 +492,28 @@ await makeTokenPayment(
 ```
 
 **_NB_**: _The `makeTokenPayment` method will not check validity of the payment address. It is therefore crucial to ensure a valid payment address is used before the payment gets made._
+
+  <details>
+  <summary>Response Content</summary>
+  <br/>
+
+```json
+{
+    "transactionHash": "g7d07...6704b",
+    "paymentAddress": "d0e72...85b46",
+    "asset": {
+        "kind": "token",
+        "amount": 10
+    },
+    "usedAddresses": ["a0b08...c02e5"]
+}
+```
+
+`content.makePaymentResponse` is built from the response of `POST /v1/transactions` on the `mempoolHost`, which returns a `transactions` object keyed by transaction hash (`{ [tx_hash]: { address, asset } }`). The wallet picks out the single transaction it just created and flattens it into the shape above, and adds `usedAddresses` - the list of your own addresses that were spent from to fund the payment.
+
+`makeItemPayment` returns the same shape, with `asset.kind` set to `"item"` and the corresponding `genesis_hash`/`metadata` fields present.
+
+</details>
 
 ### Spending Items
 
