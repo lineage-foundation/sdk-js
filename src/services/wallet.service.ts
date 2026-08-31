@@ -7,8 +7,10 @@ import {
     IAssetToken,
     IClientConfig,
     IClientResponse,
+    ICreateItemResponse,
     ICreateTransaction,
     ICreateTransactionEncrypted,
+    ICreateTransactionsResponse,
     IDruidExpectation,
     IErrorInternal,
     IFetchBalanceResponse,
@@ -370,10 +372,11 @@ export class Wallet {
         }
 
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             const keyPair = throwIfErr(this.keyMgmt.decryptKeypair(address));
-            // Create item-creation transaction
+            // Create item-creation transaction (client-signed; the signable asset hash is
+            // unaffected by the legacy `version` field dropped from the API body below)
             const createItemBody = throwIfErr(
                 createItemPayload(
                     keyPair.secretKey,
@@ -384,30 +387,28 @@ export class Wallet {
                     metadata,
                 ),
             );
-            // Generate needed headers
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
+
+            const result = await this.apiRequest<ICreateItemResponse>(
+                this.mempoolHost,
                 IAPIRoute.CreateItemAsset,
+                'POST',
+                {
+                    item_amount: createItemBody.item_amount,
+                    genesis_hash_spec: createItemBody.genesis_hash_spec,
+                    metadata: createItemBody.metadata,
+                    script_public_key: createItemBody.script_public_key,
+                    public_key: createItemBody.public_key,
+                    signature: createItemBody.signature,
+                },
             );
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.mempoolHost}${IAPIRoute.CreateItemAsset}`,
-                    createItemBody,
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            createItemResponse: response.data.content,
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /create_item_asset: ${error}`);
-                    throw new Error('Unable to create Item asset on mempool successfully');
-                });
+            if (result.status === 'error') throw new Error(result.reason);
+
+            return {
+                status: 'success',
+                content: {
+                    createItemResponse: result.data,
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',
@@ -1278,7 +1279,7 @@ export class Wallet {
 
         // Proceed with payment
         try {
-            if (!this.mempoolHost || !this.keyMgmt || !this.mempoolRoutesPoW)
+            if (!this.mempoolHost || !this.keyMgmt)
                 throw new Error(IErrorInternal.ClientNotInitialized);
             const [allAddresses, keyPairMap] = throwIfErr(
                 this.keyMgmt.getAllAddressesAndKeypairMap(allKeypairs),
@@ -1292,7 +1293,7 @@ export class Wallet {
             // Get all existing addresses
             if (allKeypairs.length === 0) throw new Error(IErrorInternal.NoKeypairsProvided);
 
-            // Create transaction
+            // Create transaction (client-signed; unchanged construction)
             const paymentBody = throwIfErr(
                 createPaymentTx(
                     paymentAddress,
@@ -1306,38 +1307,27 @@ export class Wallet {
 
             const { usedAddresses } = paymentBody;
 
-            // Generate the needed headers
-            const headers = this.getRequestIdAndNonceHeadersForRoute(
-                this.mempoolRoutesPoW,
+            // Send transaction to mempool for processing. `fees` isn't part of the signed
+            // transaction - it's an explicit (nullable) field required by the `/v1/transactions` DTO.
+            const result = await this.apiRequest<ICreateTransactionsResponse>(
+                this.mempoolHost,
                 IAPIRoute.CreateTransactions,
+                'POST',
+                { transactions: [{ ...paymentBody.createTx, fees: null }] },
             );
+            if (result.status === 'error') throw new Error(result.reason);
 
-            // Send transaction to mempool for processing
-            return await axios
-                .post<INetworkResponse>(
-                    `${this.mempoolHost}${IAPIRoute.CreateTransactions}`,
-                    [paymentBody.createTx],
-                    { ...headers, validateStatus: () => true },
-                )
-                .then((response) => {
-                    return {
-                        status: castAPIStatus(response.data.status),
-                        reason: response.data.reason,
-                        content: {
-                            makePaymentResponse: throwIfErr(
-                                transformCreateTxResponseFromNetwork(
-                                    usedAddresses,
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    response.data.content as any,
-                                ),
-                            ),
-                        },
-                    } as IClientResponse;
-                })
-                .catch(async (error) => {
-                    console.log(`Error calling /create_transactions: ${error}`);
-                    throw new Error('Unable to create transactions on mempool successfully');
-                });
+            return {
+                status: 'success',
+                content: {
+                    makePaymentResponse: throwIfErr(
+                        transformCreateTxResponseFromNetwork(
+                            usedAddresses,
+                            result.data.transactions,
+                        ),
+                    ),
+                },
+            } as IClientResponse;
         } catch (error) {
             return {
                 status: 'error',

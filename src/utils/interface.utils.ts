@@ -327,7 +327,8 @@ export const assetsAreCompatible = (
 };
 
 /**
- * Create an `ICreateTransactionResponse` object from a response received by the network (network response is terrible to digest)
+ * Create an `IMakePaymentResponse` object from the `transactions` field of a `POST /v1/transactions`
+ * response (a map of transaction hash to the resulting output address/asset)
  *
  * @param {string[]} usedAddresses
  * @param {IApiCreateTxResponse} networkResponse
@@ -340,15 +341,11 @@ export const transformCreateTxResponseFromNetwork = (
     try {
         const transactionHash = Object.keys(networkResponse).pop();
         if (transactionHash === undefined) return err(IErrorInternal.InvalidNetworkResponse);
-        const [paymentAddress, asset] = [
-            networkResponse[transactionHash][0],
-            networkResponse[transactionHash][1],
-        ];
+        const { address: paymentAddress, asset } = networkResponse[transactionHash];
         return ok({
             transactionHash,
             paymentAddress,
-            asset: asset.asset,
-            metadata: asset.metadata,
+            asset,
             usedAddresses,
         });
     } catch (e) {

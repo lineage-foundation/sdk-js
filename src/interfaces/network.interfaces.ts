@@ -83,18 +83,23 @@ export type INetworkResponse = {
     content?: IApiContentType;
 };
 
-export type IApiCreateTxResponse = IGenericKeyPair<[string, IApiAsset]>; // Transaction hash - (public key address, asset paid);
+// Chain asset as returned by the `/v1` write endpoints, tagged by `kind`
+export type IApiAsset =
+    | { kind: 'token'; amount: number }
+    | { kind: 'item'; amount: number; genesis_hash: string | null; metadata: string | null };
 
-export type IApiAsset = {
-    asset: IAssetToken | IAssetItem;
-    metadata: number[] | null;
+// `transactions` field of the `POST /v1/transactions` response, keyed by transaction hash
+export type IApiCreateTxResponse = IGenericKeyPair<{ address: string; asset: IApiAsset }>;
+
+// `POST /v1/transactions` endpoint response
+export type ICreateTransactionsResponse = {
+    transactions: IApiCreateTxResponse;
 };
 
 export type IMakePaymentResponse = {
     transactionHash: string;
     paymentAddress: string;
-    asset: IAssetToken | IAssetItem;
-    metadata: number[] | null;
+    asset: IApiAsset;
     usedAddresses: string[];
 };
 
@@ -138,12 +143,9 @@ export type IFetchBalanceResponse = {
     address_list: IGenericKeyPair<{ out_point: IOutPoint; value: IAssetItem | IAssetToken }[]>;
 };
 
-// `/create_item_asset` endpoint response
+// `POST /v1/items` endpoint response
 export type ICreateItemResponse = {
-    asset: {
-        asset: IAssetItem;
-        metadata: number[] | null;
-    };
+    asset: IApiAsset; // `{ kind: 'item', amount, genesis_hash, metadata }`
     to_address: string;
     tx_hash: string;
 };
@@ -160,7 +162,10 @@ export enum IGenesisHashSpecification {
     Default = 'Default',
 }
 
-// `/create_item_asset` payload structure
+// Client-signed item-creation payload built by `createItemPayload`. `version` is kept
+// here (and still returned by `createItemPayload`) since it's part of the address-derivation
+// context, but it is dropped from the `POST /v1/items` request body - the `/v1` DTO has no
+// such field.
 export type IItemCreationAPIPayload = {
     item_amount: number;
     script_public_key: string;
@@ -168,6 +173,7 @@ export type IItemCreationAPIPayload = {
     signature: string;
     version: number | null;
     genesis_hash_spec: IGenesisHashSpecification;
+    metadata: string | null;
 };
 // `/create_transactions` payload structure
 export type ICreateTxPayload = {
