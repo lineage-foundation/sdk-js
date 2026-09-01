@@ -15,15 +15,15 @@ export type IAddressListTest = {
 };
 
 // export const CONFIG = {
-//     mempoolHost: 'https://mempool.aiblock.ch',
-//     storageHost: 'https://storage.aiblock.ch',
+//     mempoolHost: 'https://mempool.lineage.to',
+//     storageHost: 'https://storage.lineage.to',
 //     valenceHost: 'http://0.0.0.0:3030',
 //     passphrase: '',
 // };
 
 export const CONFIG = {
-    mempoolHost: 'https://mempool.aiblock.dev',
-    storageHost: 'https://storage.aiblock.dev',
+    mempoolHost: 'https://mempool.lineage.to',
+    storageHost: 'https://storage.lineage.to',
     valenceHost: 'http://0.0.0.0:3030',
     passphrase: 'test',
 };
