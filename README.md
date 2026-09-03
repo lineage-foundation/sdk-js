@@ -12,7 +12,7 @@
 
   <div>
   <img src="https://img.shields.io/github/actions/workflow/status/lineage-foundation/sdk-js/.github/workflows/codeql.yml?branch=main" alt="Pipeline Status" style="display:inline-block"/>
-  <img src="https://img.shields.io/npm/v/@lineage/sdk-js" alt="npm version" style="display:inline-block"/>
+  <img src="https://img.shields.io/npm/v/@lineage-foundation/sdk-js" alt="npm version" style="display:inline-block"/>
   </div>
 
   <p align="center">
@@ -81,13 +81,13 @@ Install the module to your project:
 -   npm
 
     ```sh
-    npm install @lineage/sdk-js
+    npm install @lineage-foundation/sdk-js
     ```
 
 -   yarn
 
     ```sh
-    yarn add @lineage/sdk-js
+    yarn add @lineage-foundation/sdk-js
     ```
 
 <p align="right">(<a href="#top">back to top</a>)</p>
@@ -97,7 +97,7 @@ Install the module to your project:
 -   `initNew`
 
 ```typescript
-import { Wallet } from '@lineage/sdk-js';
+import { Wallet } from '@lineage-foundation/sdk-js';
 
 const CONFIG = {
   mempoolHost: 'example.mempool.host.com',
@@ -169,7 +169,7 @@ This type of initialization will return the corresponding master key (in an encr
 <br/>
 
 ```typescript
-import { Wallet } from '@lineage/sdk-js';
+import { Wallet } from '@lineage-foundation/sdk-js';
 
 // Create the wallet object
 const wallet = new Wallet();
@@ -260,7 +260,7 @@ After the wallet has been correctly initialized, the methods provided by the wal
 -   `generateSeedPhrase`
 
     ```typescript
-    import { generateSeedPhrase } from '@lineage/sdk-js';
+    import { generateSeedPhrase } from '@lineage-foundation/sdk-js';
 
     const seedPhrase = generateSeedPhrase();
     ```
@@ -268,7 +268,7 @@ After the wallet has been correctly initialized, the methods provided by the wal
 -   `testSeedPhrase`
 
     ```typescript
-    import { testSeedPhrase } from '@lineage/sdk-js';
+    import { testSeedPhrase } from '@lineage-foundation/sdk-js';
 
     const seedPhrase = 'a seed phrase provided by the user that looks like a bunch of random words';
 
@@ -286,7 +286,7 @@ Since a seed phrase can be used to reconstruct lost/missing key-pairs, it is cus
 -   `getNewKeypair`
 
     ```typescript
-    import { Wallet } from '@lineage/sdk-js';
+    import { Wallet } from '@lineage-foundation/sdk-js';
 
     const wallet = new Wallet();
 
@@ -310,7 +310,7 @@ Since a seed phrase can be used to reconstruct lost/missing key-pairs, it is cus
 -   `fetchBalance`
 
     ```typescript
-    import { Wallet } from '@lineage/sdk-js';
+    import { Wallet } from '@lineage-foundation/sdk-js';
 
     const wallet = new Wallet();
 
@@ -402,7 +402,7 @@ or complex logic to create.
 | metadata         | `string`            | null        | no           | Optional metadata that you can attach to the asset                                                                                                                                         |
 
 ```typescript
-import { Wallet } from '@lineage/sdk-js';
+import { Wallet } from '@lineage-foundation/sdk-js';
 
 const wallet = new Wallet();
 
@@ -469,7 +469,7 @@ This is the response body of `POST /v1/items` on the `mempoolHost`, returned as-
 | excessKeypair  | `IKeypairEncrypted`    |             | yes          | Excess keypair to send any remaining balance to                                                                                 |
 
 ```typescript
-import { Wallet } from '@lineage/sdk-js';
+import { Wallet } from '@lineage-foundation/sdk-js';
 
 const wallet = new Wallet();
 
@@ -528,7 +528,7 @@ await makeTokenPayment(
 | excessKeypair  | `IKeypairEncrypted`    |             | yes          | Excess keypair to send any remaining balance to                                                                                 |
 
 ```typescript
-import { Wallet } from '@lineage/sdk-js';
+import { Wallet } from '@lineage-foundation/sdk-js';
 
 const wallet = new Wallet();
 
@@ -570,7 +570,7 @@ await makeItemPayment(
 | entryValueId | `String`            |             | yes          | A value id for a specific 2-way transaction entry |
 
 ```typescript
-import { Wallet } from '@lineage/sdk-js';
+import { Wallet } from '@lineage-foundation/sdk-js';
 
 const wallet = new Wallet();
 
@@ -617,7 +617,7 @@ const paymentResult = await make2WayPayment(
 -   `fetchPending2WayPayments`
 
     ```typescript
-    import { Wallet } from '@lineage/sdk-js';
+    import { Wallet } from '@lineage-foundation/sdk-js';
 
     const wallet = new Wallet();
 
@@ -684,7 +684,7 @@ const paymentResult = await make2WayPayment(
 -   `accept2WayPayment` and `reject2WayPayment`
 
     ```typescript
-    import { Wallet } from '@lineage/sdk-js';
+    import { Wallet } from '@lineage-foundation/sdk-js';
 
     const wallet = new Wallet();
 
