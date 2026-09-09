@@ -7,7 +7,6 @@ import {
     IAssetToken,
     ICreateTransaction,
     ICreateTransactionEncrypted,
-    IDruidDroplet,
     IDruidExpectation,
     IGenericKeyPair,
     IKeypair,
@@ -47,7 +46,7 @@ export type IContentType = {
 export type IApiContentType = {
     fetchBalanceResponse?: IFetchBalanceResponse;
     createItemResponse?: ICreateItemResponse;
-    fetchPending2WResponse?: IPending2WResponse;
+    fetchPending2WResponse?: IGenericKeyPair<IPending2WTxDetails>;
     fetchTransactionsResponse?: IFetchTransactionsResponse;
     makePaymentResponse?: IMakePaymentResponse;
 };
@@ -57,13 +56,12 @@ export enum IAPIRoute {
     FetchBalance = '/v1/balances/query',
     CreateTransactions = '/v1/transactions',
     CreateItemAsset = '/v1/items',
-    FetchPending = '/fetch_pending',
     /* --------------------------- Storage Network Routes --------------------------- */
     BlockchainEntry = '/v1/blockchain-entries/query',
     /* ----------------------------- Valence Routes ---------------------------- */
-    ValenceSet = '/set_data',
-    ValenceGet = '/get_data',
-    ValenceDel = '/del_data',
+    ValenceSet = '/messages',
+    ValenceGet = '/messages',
+    ValenceDel = '/messages',
 }
 
 /* -------------------------------------------------------------------------- */
@@ -140,11 +138,6 @@ export type ICreateItemResponse = {
     tx_hash: string;
 };
 
-// `/fetch_pending` endpoint response
-export type IFetchPending2WayResponse = {
-    pending_transactions: { [key: string]: IDruidDroplet[] };
-};
-
 /* --------------------------- Payload Structures --------------------------- */
 
 export enum IGenesisHashSpecification {
@@ -176,20 +169,19 @@ export type ICreateTxPayload = {
 /*                          Valence Interfaces                                */
 /* -------------------------------------------------------------------------- */
 
-export type IRequestValenceResponse = {
-    status: 'Success' | 'Error' | 'InProgress' | 'Unknown';
-    reason?: string;
-    route?: string;
-    content?: IApiContentType;
+// `POST /messages` response body
+export type IValenceCreateMessageResponse = {
+    id: string;
 };
 
 export type IRequestValenceSetBody<T> = {
-    address: string;
+    id: string;
     data: T;
 };
 
+// `GET /messages/{id}` response body
 export type IPending2WResponse = {
-    address: string;
+    id: string;
     data: IPending2WTxDetails;
 };
 

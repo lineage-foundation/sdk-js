@@ -7,22 +7,15 @@ import { DEFAULT_HEADERS } from '../mgmt/constants';
  *
  * @export
  * @template T
- * @param {string} addressKey
- * @param {string} addressField
- * @param {IKeypair} keyPairForField
- * @param {T} value
+ * @param {T} data
+ * @param {string} dataId
  * @return {*}  {IRequestValenceSetBody<T>}
  */
-export function generateValenceSetBody<T>(
-    address: string,
-    data: T,
-    dataId: string,
-): IRequestValenceSetBody<T> {
+export function generateValenceSetBody<T>(data: T, dataId: string): IRequestValenceSetBody<T> {
     return {
-        address: address,
+        id: dataId,
         data,
-        data_id: dataId,
-    } as IRequestValenceSetBody<T>;
+    };
 }
 
 /**

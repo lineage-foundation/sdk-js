@@ -18,9 +18,8 @@ import {
     IGenericKeyPair,
     IKeypairEncrypted,
     IMasterKeyEncrypted,
-    IPending2WResponse,
     IPending2WTxDetails,
-    IRequestValenceResponse,
+    IValenceCreateMessageResponse,
     ISuccessInternal,
 } from '../interfaces';
 import {
@@ -852,14 +851,12 @@ export class Wallet {
                 mempoolHost: this.mempoolHost,
             };
 
-            const sendBody = generateValenceSetBody(paymentAddress, valuePayload, druid);
+            const sendBody = generateValenceSetBody(valuePayload, druid);
             const sendHeaders = generateVerificationHeaders(paymentAddress, senderKeypair);
-
-            console.log(sendHeaders, sendBody);
 
             // Send the transaction details to the valence server for the receiving party to inspect
             return await axios
-                .post<IRequestValenceResponse>(
+                .post<IValenceCreateMessageResponse>(
                     `${this.valenceHost}${IAPIRoute.ValenceSet}`,
                     sendBody,
                     sendHeaders,
@@ -916,16 +913,14 @@ export class Wallet {
             const kp = throwIfErr(this.keyMgmt.decryptKeypair(keypair));
             const sendHeaders = generateVerificationHeaders(keypair.address, kp);
 
-            // Get pending 2WT transactions
+            // Get pending 2WT transactions. `GET /messages` returns the mailbox contents as a
+            // map keyed by data id, with each value being the stored `data` payload directly.
             const fetched2WTx = await axios
-                .get<IRequestValenceResponse>(
+                .get<IGenericKeyPair<IPending2WTxDetails>>(
                     `${this.valenceHost}${IAPIRoute.ValenceGet}`,
                     sendHeaders,
                 )
-                .then((response) => {
-                    if (!response.data.content) throw new Error(IErrorInternal.NoContentReturned);
-                    return response.data.content;
-                })
+                .then((response) => response.data)
                 .catch(async (error) => {
                     if (error instanceof Error) throw new Error(error.message);
                     else throw new Error(`${error}`);
@@ -934,14 +929,14 @@ export class Wallet {
             // Get accepted and rejected 2 way transactions
             const accepted2WTxs: { key: string; value: IPending2WTxDetails }[] = [];
             const rejected2WTxs: { key: string; value: IPending2WTxDetails }[] = [];
-            const twoWayDataToDelete: any[] = [];
+            const twoWayDataToDelete: { id: string; headers: ReturnType<typeof generateVerificationHeaders> }[] =
+                [];
 
             Object.entries(fetched2WTx).forEach(([key, value]) => {
-                if ((value as IPending2WResponse).data.status === 'accepted') {
-                    // temps fix bad content type on valence
-                    accepted2WTxs.push({ key: key, value: (value as IPending2WResponse).data });
-                } else if ((value as IPending2WResponse).data.status === 'rejected') {
-                    rejected2WTxs.push({ key: key, value: (value as IPending2WResponse).data });
+                if (value.status === 'accepted') {
+                    accepted2WTxs.push({ key: key, value });
+                } else if (value.status === 'rejected') {
+                    rejected2WTxs.push({ key: key, value });
                 }
             });
 
@@ -969,9 +964,13 @@ export class Wallet {
                     const keyPair = keyPairMap.get(acceptedTx.value.senderExpectation.to);
                     if (!keyPair) throw new Error(IErrorInternal.UnableToGetKeypair);
 
-                    twoWayDataToDelete.push(
-                        generateVerificationHeaders(acceptedTx.value.senderExpectation.to, keyPair),
-                    );
+                    twoWayDataToDelete.push({
+                        id: acceptedTx.key,
+                        headers: generateVerificationHeaders(
+                            acceptedTx.value.senderExpectation.to,
+                            keyPair,
+                        ),
+                    });
                 }
 
                 // Send transactions to mempool for processing. `fees` and `druid_info.genesis_hash`
@@ -999,12 +998,13 @@ export class Wallet {
                     for (const rejectedTx of Object.values(rejected2WTxs)) {
                         const keyPair = keyPairMap.get(rejectedTx.value.senderExpectation.to);
                         if (!keyPair) throw new Error(IErrorInternal.UnableToGetKeypair);
-                        twoWayDataToDelete.push(
-                            generateVerificationHeaders(
+                        twoWayDataToDelete.push({
+                            id: rejectedTx.key,
+                            headers: generateVerificationHeaders(
                                 rejectedTx.value.senderExpectation.to,
                                 keyPair,
                             ),
-                        );
+                        });
                     }
                 }
 
@@ -1012,7 +1012,10 @@ export class Wallet {
                 if (twoWayDataToDelete.length > 0)
                     for (const dataToDelete of twoWayDataToDelete) {
                         await axios
-                            .delete(`${this.valenceHost}${IAPIRoute.ValenceDel}`, dataToDelete)
+                            .delete(
+                                `${this.valenceHost}${IAPIRoute.ValenceDel}/${dataToDelete.id}`,
+                                dataToDelete.headers,
+                            )
                             .catch(async (error) => {
                                 if (error instanceof Error) throw new Error(error.message);
                                 else throw new Error(`${error}`);
@@ -1119,7 +1122,7 @@ export class Wallet {
             }
 
             // Send the updated status of the transaction on the valence server
-            const sendBody = generateValenceSetBody(txInfo.senderExpectation.to, txInfo, druid);
+            const sendBody = generateValenceSetBody(txInfo, druid);
             const sendHeaders = generateVerificationHeaders(
                 txInfo.senderExpectation.to,
                 receiverKeypair,
