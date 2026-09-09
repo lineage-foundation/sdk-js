@@ -929,8 +929,10 @@ export class Wallet {
             // Get accepted and rejected 2 way transactions
             const accepted2WTxs: { key: string; value: IPending2WTxDetails }[] = [];
             const rejected2WTxs: { key: string; value: IPending2WTxDetails }[] = [];
-            const twoWayDataToDelete: { id: string; headers: ReturnType<typeof generateVerificationHeaders> }[] =
-                [];
+            const twoWayDataToDelete: {
+                id: string;
+                headers: ReturnType<typeof generateVerificationHeaders>;
+            }[] = [];
 
             Object.entries(fetched2WTx).forEach(([key, value]) => {
                 if (value.status === 'accepted') {

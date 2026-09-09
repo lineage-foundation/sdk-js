@@ -56,9 +56,7 @@ describe('accept2WayPayment', () => {
             });
 
         // The accepted settlement status gets pushed to the valence `/messages` mailbox API
-        const valenceScope = nock(VALENCE_HOST)
-            .post('/messages')
-            .reply(201, { id: 'test_druid' });
+        const valenceScope = nock(VALENCE_HOST).post('/messages').reply(201, { id: 'test_druid' });
 
         const pendingResponse: IPending2WTxDetails = {
             druid: 'test_druid',
