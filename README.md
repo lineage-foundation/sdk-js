@@ -4,6 +4,8 @@ JavaScript/TypeScript SDK for the Lineage `/v1` REST API: a key-holding wallet t
 
 ## Installation
 
+Published on [npm](https://www.npmjs.com/package/@lineage-foundation/sdk-js) as `@lineage-foundation/sdk-js`.
+
 ```sh
 npm install @lineage-foundation/sdk-js
 ```
