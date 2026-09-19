@@ -170,18 +170,13 @@ export class Wallet {
         config: IClientConfig,
         initOffline = false,
     ): Promise<IClientResponse> {
-        console.log('[Wallet.fromSeed] Validating inputs...'); // Log 1
         const validConfig = validateConfig(config);
         const validSeedphrase = validateSeedphrase(seedPhrase);
-        console.log('[Wallet.fromSeed] validConfig:', JSON.stringify(validConfig, null, 2)); // Log 2
-        console.log('[Wallet.fromSeed] validSeedphrase:', JSON.stringify(validSeedphrase, null, 2)); // Log 3
 
         if (validConfig.error || validSeedphrase.error) {
-            console.log('[Wallet.fromSeed] Validation FAILED. Calling handleValidationFailures.'); // Log 4
             return handleValidationFailures([validConfig.error, validSeedphrase.error]);
         }
 
-        console.log('[Wallet.fromSeed] Validation PASSED. Initializing mgmtClient...'); // Log 5
         this.keyMgmt = new mgmtClient();
         const initIResult = this.keyMgmt.fromSeed(seedPhrase, config.passphrase);
         if (!initOffline) {
