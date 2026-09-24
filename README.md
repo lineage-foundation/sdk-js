@@ -43,6 +43,21 @@ const { fetchBalanceResponse: balance } = (await wallet.fetchBalance([keypair.ad
 await wallet.makeTokenPayment('d0e72...85b46', 10, [keypair], keypair);
 ```
 
+## Item metadata enrichment
+
+`fetchBalance` attaches each item's genesis `metadata` by default, resolved from the storage node and cached per-instance (duplicate `genesis_hash`es in a balance are resolved once, not once per UTXO). This requires `storageHost` to be configured — without it, items are returned with `metadata: null` rather than failing the call. Pass `enrich: false` to skip resolution and get the balance as-is:
+
+```typescript
+const { fetchBalanceResponse: balance } = (await wallet.fetchBalance([keypair.address], false))
+    .content;
+```
+
+For an item's full genesis facts — supply, creator, created block/tx — call `getItemInfo(genesisHash)` directly, which shares the same cache:
+
+```typescript
+const { getItemInfoResponse: info } = (await wallet.getItemInfo(genesisHash)).content;
+```
+
 ## Two-way (DRUID) payments
 
 DRUID-based dual double-entry trades: two parties each pay an asset to the other, atomically correlated by a shared DRUID, and coordinated out-of-band through a plaintext valence mailbox host (`valenceHost`).

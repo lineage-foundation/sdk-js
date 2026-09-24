@@ -49,6 +49,7 @@ export type IApiContentType = {
     fetchPending2WResponse?: IGenericKeyPair<IPending2WTxDetails>;
     fetchTransactionsResponse?: IFetchTransactionsResponse;
     makePaymentResponse?: IMakePaymentResponse;
+    getItemInfoResponse?: IItemInfoResponse;
 };
 
 export enum IAPIRoute {
@@ -58,6 +59,7 @@ export enum IAPIRoute {
     CreateItemAsset = '/v1/items',
     /* --------------------------- Storage Network Routes --------------------------- */
     BlockchainEntry = '/v1/blockchain-entries/query',
+    Items = '/v1/items',
     /* ----------------------------- Valence Routes ---------------------------- */
     ValenceSet = '/messages',
     ValenceGet = '/messages',
@@ -129,6 +131,15 @@ export type IFetchBalanceResponse = {
         items: IGenericKeyPair<number>;
     };
     address_list: IGenericKeyPair<{ out_point: IOutPoint; value: IAssetItem | IAssetToken }[]>;
+};
+
+// `GET /v1/items/{genesis_hash}` endpoint response - an item's immutable genesis facts
+export type IItemInfoResponse = {
+    genesis_hash: string;
+    metadata: string | null;
+    total_amount: number;
+    created: { block_num: number; tx_hash: string };
+    creator_address: string | null;
 };
 
 // `POST /v1/items` endpoint response

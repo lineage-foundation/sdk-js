@@ -16,6 +16,7 @@ import {
     IFetchBalanceResponse,
     IFetchTransactionsResponse,
     IGenericKeyPair,
+    IItemInfoResponse,
     IKeypairEncrypted,
     IMasterKeyEncrypted,
     IPending2WTxDetails,
@@ -33,6 +34,7 @@ import {
 import {
     initIAssetItem,
     initIAssetToken,
+    isOfTypeIAssetItem,
     throwIfErr,
     transformCreateTxResponseFromNetwork,
 } from '../utils';
@@ -59,6 +61,7 @@ export class Wallet {
     private valenceHost: string | undefined;
     private apiKey: string | undefined;
     private keyMgmt: mgmtClient | undefined;
+    private readonly itemInfoCache = new Map<string, IItemInfoResponse>();
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
@@ -247,7 +250,7 @@ export class Wallet {
      * @return {*}  {Promise<IClientResponse>}
      * @memberof Wallet
      */
-    public async fetchBalance(addressList: string[]): Promise<IClientResponse> {
+    public async fetchBalance(addressList: string[], enrich = true): Promise<IClientResponse> {
         const validAddresses = addressList.map((address) => validateAddress(address));
         if (validAddresses.find((address) => address.error)) {
             return handleValidationFailures(validAddresses.map((address) => address.error));
@@ -264,10 +267,19 @@ export class Wallet {
             );
             if (result.status === 'error') throw new Error(result.reason);
 
+            const balance = result.data.balance;
+            if (enrich) {
+                try {
+                    await this.enrichBalanceItems(balance);
+                } catch {
+                    // Enrichment is best-effort; never fail the balance call.
+                }
+            }
+
             return {
                 status: 'success',
                 content: {
-                    fetchBalanceResponse: result.data.balance,
+                    fetchBalanceResponse: balance,
                 },
             } as IClientResponse;
         } catch (error) {
@@ -315,6 +327,71 @@ export class Wallet {
                 status: 'error',
                 reason: `${error}`,
             } as IClientResponse;
+        }
+    }
+
+    /**
+     * Fetch one item's genesis facts from the storage node, using the
+     * per-instance cache. Returns null on any miss/failure (caches only 200s).
+     */
+    private async fetchItemInfo(genesisHash: string): Promise<IItemInfoResponse | null> {
+        const cached = this.itemInfoCache.get(genesisHash);
+        if (cached) return cached;
+        if (!this.storageHost) return null;
+        const result = await this.apiRequest<IItemInfoResponse>(
+            this.storageHost,
+            `${IAPIRoute.Items}/${genesisHash}`,
+            'GET',
+        );
+        if (result.status !== 'success') return null;
+        this.itemInfoCache.set(genesisHash, result.data);
+        return result.data;
+    }
+
+    /** Attach genesis metadata to every item UTXO in a balance (best-effort). */
+    private async enrichBalanceItems(balance: IFetchBalanceResponse): Promise<void> {
+        const values = Object.values(balance.address_list ?? {}).flat();
+        const hashes = new Set<string>();
+        for (const utxo of values) {
+            if (isOfTypeIAssetItem(utxo.value)) hashes.add(utxo.value.Item.genesis_hash);
+        }
+        if (hashes.size === 0) return;
+        await Promise.all([...hashes].map((h) => this.fetchItemInfo(h)));
+        for (const utxo of values) {
+            if (isOfTypeIAssetItem(utxo.value)) {
+                const info = this.itemInfoCache.get(utxo.value.Item.genesis_hash);
+                // Only overwrite on a successful resolve; a miss must not clobber
+                // metadata the listing already carried (e.g. creator-held items).
+                if (info) utxo.value.Item.metadata = info.metadata;
+            }
+        }
+    }
+
+    /**
+     * Resolve an item's full genesis facts (metadata, supply, provenance) by its
+     * genesis_hash. Shares the enrichment cache.
+     */
+    public async getItemInfo(genesisHash: string): Promise<IClientResponse> {
+        try {
+            const cached = this.itemInfoCache.get(genesisHash);
+            if (cached) {
+                return { status: 'success', content: { getItemInfoResponse: cached } };
+            }
+            if (!this.storageHost) {
+                throw new Error(IErrorInternal.StorageNotInitialized);
+            }
+            const result = await this.apiRequest<IItemInfoResponse>(
+                this.storageHost,
+                `${IAPIRoute.Items}/${genesisHash}`,
+                'GET',
+            );
+            if (result.status !== 'success') {
+                throw new Error(result.reason);
+            }
+            this.itemInfoCache.set(genesisHash, result.data);
+            return { status: 'success', content: { getItemInfoResponse: result.data } };
+        } catch (error) {
+            return { status: 'error', reason: `${error}` };
         }
     }
 
@@ -1287,7 +1364,7 @@ export class Wallet {
      * @private
      * @template T - Shape of the successful response body
      * @param {string} host - Base host to send the request to
-     * @param {IAPIRoute} route - `/v1` route to call
+     * @param {IAPIRoute | string} route - `/v1` route to call (or a route with a path segment appended)
      * @param {('GET' | 'POST')} method - HTTP method to use
      * @param {unknown} [body] - Request body, for `POST` requests
      * @return {*}  {(Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }>)}
@@ -1295,7 +1372,7 @@ export class Wallet {
      */
     private async apiRequest<T>(
         host: string,
-        route: IAPIRoute,
+        route: IAPIRoute | string,
         method: 'GET' | 'POST',
         body?: unknown,
     ): Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }> {
