@@ -269,7 +269,11 @@ export class Wallet {
 
             const balance = result.data.balance;
             if (enrich) {
-                await this.enrichBalanceItems(balance);
+                try {
+                    await this.enrichBalanceItems(balance);
+                } catch {
+                    // Enrichment is best-effort; never fail the balance call.
+                }
             }
 
             return {

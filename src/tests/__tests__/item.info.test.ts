@@ -113,10 +113,16 @@ test('fetchBalance dedups + caches: two addrs, one genesis_hash -> one resolver 
         },
     ] as never;
     nock(MEMPOOL_HOST).post('/v1/balances/query').reply(200, { balance: bal });
-    const itemScope = nock(STORAGE_HOST).get(`/v1/items/${GH}`).once().reply(200, INFO);
+    let calls = 0;
+    nock(STORAGE_HOST)
+        .get(`/v1/items/${GH}`)
+        .reply(200, () => {
+            calls++;
+            return INFO;
+        });
     const wallet = await newWallet();
     const res = await wallet.fetchBalance([ADDR1, ADDR2]);
-    expect(itemScope.isDone()).toBe(true); // exactly one resolver call
+    expect(calls).toBe(1); // exactly one resolver call
     const b = res.content?.fetchBalanceResponse as IFetchBalanceResponse;
     expect(
         (b.address_list[ADDR2][0].value as { Item: { metadata: string | null } }).Item.metadata,
@@ -141,8 +147,9 @@ test('fetchBalance enrich=false issues no resolver calls', async () => {
     nock(MEMPOOL_HOST)
         .post('/v1/balances/query')
         .reply(200, { balance: balanceWith(GH) });
-    // No storage interceptor: any resolver call throws.
+    const storageScope = nock(STORAGE_HOST).get(`/v1/items/${GH}`).reply(200, INFO);
     const wallet = await newWallet();
     const res = await wallet.fetchBalance([ADDR1], false);
     expect(res.status).toBe('success');
+    expect(storageScope.isDone()).toBe(false);
 });
