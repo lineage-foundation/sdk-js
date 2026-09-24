@@ -1364,7 +1364,7 @@ export class Wallet {
      * @private
      * @template T - Shape of the successful response body
      * @param {string} host - Base host to send the request to
-     * @param {IAPIRoute} route - `/v1` route to call
+     * @param {IAPIRoute | string} route - `/v1` route to call (or a route with a path segment appended)
      * @param {('GET' | 'POST')} method - HTTP method to use
      * @param {unknown} [body] - Request body, for `POST` requests
      * @return {*}  {(Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }>)}
