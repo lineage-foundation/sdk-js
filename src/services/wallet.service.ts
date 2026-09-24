@@ -360,7 +360,9 @@ export class Wallet {
         for (const utxo of values) {
             if (isOfTypeIAssetItem(utxo.value)) {
                 const info = this.itemInfoCache.get(utxo.value.Item.genesis_hash);
-                utxo.value.Item.metadata = info ? info.metadata : null;
+                // Only overwrite on a successful resolve; a miss must not clobber
+                // metadata the listing already carried (e.g. creator-held items).
+                if (info) utxo.value.Item.metadata = info.metadata;
             }
         }
     }

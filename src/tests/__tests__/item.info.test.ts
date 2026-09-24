@@ -143,6 +143,31 @@ test('fetchBalance graceful degrade: resolver error -> metadata null, call succe
     ).toBeNull();
 });
 
+test('fetchBalance degrade must not clobber metadata already on the item', async () => {
+    // A creator-held item carries its metadata inline in the balance; a resolver
+    // miss must leave it intact rather than overwriting it with null.
+    const balance = {
+        total: { tokens: 0, items: { [GH]: 5 } },
+        address_list: {
+            [ADDR1]: [
+                {
+                    out_point: { t_hash: 't0', n: 0 },
+                    value: { Item: { amount: 5, genesis_hash: GH, metadata: 'minted inline' } },
+                },
+            ],
+        },
+    } as unknown as IFetchBalanceResponse;
+    nock(MEMPOOL_HOST).post('/v1/balances/query').reply(200, { balance });
+    nock(STORAGE_HOST).get(`/v1/items/${GH}`).reply(500, '');
+    const wallet = await newWallet();
+    const res = await wallet.fetchBalance([ADDR1]);
+    expect(res.status).toBe('success');
+    const b = res.content?.fetchBalanceResponse as IFetchBalanceResponse;
+    expect(
+        (b.address_list[ADDR1][0].value as { Item: { metadata: string | null } }).Item.metadata,
+    ).toBe('minted inline');
+});
+
 test('fetchBalance enrich=false issues no resolver calls', async () => {
     nock(MEMPOOL_HOST)
         .post('/v1/balances/query')
