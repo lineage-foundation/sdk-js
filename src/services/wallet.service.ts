@@ -16,6 +16,7 @@ import {
     IFetchBalanceResponse,
     IFetchTransactionsResponse,
     IGenericKeyPair,
+    IItemInfoResponse,
     IKeypairEncrypted,
     IMasterKeyEncrypted,
     IPending2WTxDetails,
@@ -59,6 +60,7 @@ export class Wallet {
     private valenceHost: string | undefined;
     private apiKey: string | undefined;
     private keyMgmt: mgmtClient | undefined;
+    private readonly itemInfoCache = new Map<string, IItemInfoResponse>();
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
@@ -315,6 +317,52 @@ export class Wallet {
                 status: 'error',
                 reason: `${error}`,
             } as IClientResponse;
+        }
+    }
+
+    /**
+     * Fetch one item's genesis facts from the storage node, using the
+     * per-instance cache. Returns null on any miss/failure (caches only 200s).
+     */
+    private async fetchItemInfo(genesisHash: string): Promise<IItemInfoResponse | null> {
+        const cached = this.itemInfoCache.get(genesisHash);
+        if (cached) return cached;
+        if (!this.storageHost) return null;
+        const result = await this.apiRequest<IItemInfoResponse>(
+            this.storageHost,
+            `${IAPIRoute.Items}/${genesisHash}`,
+            'GET',
+        );
+        if (result.status !== 'success') return null;
+        this.itemInfoCache.set(genesisHash, result.data);
+        return result.data;
+    }
+
+    /**
+     * Resolve an item's full genesis facts (metadata, supply, provenance) by its
+     * genesis_hash. Shares the enrichment cache.
+     */
+    public async getItemInfo(genesisHash: string): Promise<IClientResponse> {
+        try {
+            const cached = this.itemInfoCache.get(genesisHash);
+            if (cached) {
+                return { status: 'success', content: { getItemInfoResponse: cached } };
+            }
+            if (!this.storageHost) {
+                throw new Error(IErrorInternal.StorageNotInitialized);
+            }
+            const result = await this.apiRequest<IItemInfoResponse>(
+                this.storageHost,
+                `${IAPIRoute.Items}/${genesisHash}`,
+                'GET',
+            );
+            if (result.status !== 'success') {
+                throw new Error(result.reason);
+            }
+            this.itemInfoCache.set(genesisHash, result.data);
+            return { status: 'success', content: { getItemInfoResponse: result.data } };
+        } catch (error) {
+            return { status: 'error', reason: `${error}` };
         }
     }
 
@@ -1295,7 +1343,7 @@ export class Wallet {
      */
     private async apiRequest<T>(
         host: string,
-        route: IAPIRoute,
+        route: IAPIRoute | string,
         method: 'GET' | 'POST',
         body?: unknown,
     ): Promise<{ status: 'success'; data: T } | { status: 'error'; reason: string }> {
