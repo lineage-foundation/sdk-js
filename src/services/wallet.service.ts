@@ -34,6 +34,7 @@ import {
 import {
     initIAssetItem,
     initIAssetToken,
+    isOfTypeIAssetItem,
     throwIfErr,
     transformCreateTxResponseFromNetwork,
 } from '../utils';
@@ -249,7 +250,7 @@ export class Wallet {
      * @return {*}  {Promise<IClientResponse>}
      * @memberof Wallet
      */
-    public async fetchBalance(addressList: string[]): Promise<IClientResponse> {
+    public async fetchBalance(addressList: string[], enrich = true): Promise<IClientResponse> {
         const validAddresses = addressList.map((address) => validateAddress(address));
         if (validAddresses.find((address) => address.error)) {
             return handleValidationFailures(validAddresses.map((address) => address.error));
@@ -266,10 +267,15 @@ export class Wallet {
             );
             if (result.status === 'error') throw new Error(result.reason);
 
+            const balance = result.data.balance;
+            if (enrich) {
+                await this.enrichBalanceItems(balance);
+            }
+
             return {
                 status: 'success',
                 content: {
-                    fetchBalanceResponse: result.data.balance,
+                    fetchBalanceResponse: balance,
                 },
             } as IClientResponse;
         } catch (error) {
@@ -336,6 +342,23 @@ export class Wallet {
         if (result.status !== 'success') return null;
         this.itemInfoCache.set(genesisHash, result.data);
         return result.data;
+    }
+
+    /** Attach genesis metadata to every item UTXO in a balance (best-effort). */
+    private async enrichBalanceItems(balance: IFetchBalanceResponse): Promise<void> {
+        const values = Object.values(balance.address_list ?? {}).flat();
+        const hashes = new Set<string>();
+        for (const utxo of values) {
+            if (isOfTypeIAssetItem(utxo.value)) hashes.add(utxo.value.Item.genesis_hash);
+        }
+        if (hashes.size === 0) return;
+        await Promise.all([...hashes].map((h) => this.fetchItemInfo(h)));
+        for (const utxo of values) {
+            if (isOfTypeIAssetItem(utxo.value)) {
+                const info = this.itemInfoCache.get(utxo.value.Item.genesis_hash);
+                utxo.value.Item.metadata = info ? info.metadata : null;
+            }
+        }
     }
 
     /**
